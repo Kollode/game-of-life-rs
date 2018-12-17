@@ -15,7 +15,7 @@ impl GameboardSettings {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 enum CellState {
     Alive,
     Dead,
@@ -79,12 +79,11 @@ impl Gameboard {
         }
 
         for (index, cell) in self.cells.iter().enumerate() {
-            let row = (index as f64 / self.number_of_cols as f64).floor();
-            let col = index as f64 - row * self.number_of_cols as f64;
+            let (row, col) = getPositionFromIndex(self.number_of_cols as f64, index as f64);
             //println!("Index: {:?} Row: {:?} / {:?}", index, row, col);
 
             if *cell == CellState::Alive {
-                Rectangle::new([1.0, 0.0, 0.0, 1.0]).draw(
+                Rectangle::new([0.0, 0.0, 1.0, 1.0]).draw(
                     [
                         col as f64 * cell_size,
                         row as f64 * cell_size,
@@ -101,12 +100,62 @@ impl Gameboard {
 
     pub fn update(&mut self, args: &UpdateArgs) {
         self.updates += 1;
+        let mut old_cells = self.cells.clone();
+
         for (index, cell) in self.cells.iter_mut().enumerate() {
+
+            let mut number_of_living_cells_near_by = 0;
+            let current_position = getPositionFromIndex(self.number_of_cols as f64, index as f64);
+
+            for index in 0..8 {
+                let row = current_position.0 + (index as f64 / 3.0).floor() as i64;
+                let col = current_position.1 + index % 3;
+
+                if current_position == (row, col) {
+                    continue;
+                }
+
+                let neihgbour_cell = old_cells.get(getPositionFromRowCol(self.number_of_cols, row, col) as usize);
+
+                if let Some(CellState::Alive) = neihgbour_cell {
+                    number_of_living_cells_near_by += 1;
+                }
+
+                if number_of_living_cells_near_by > 4 {
+                    break;
+                }
+            }
+
             if *cell == CellState::Alive {
+                if number_of_living_cells_near_by > 3 || number_of_living_cells_near_by < 2 {
                 *cell = CellState::Dead;
-            } else {
+                } else if number_of_living_cells_near_by == 2  || number_of_living_cells_near_by == 3 {
+                    *cell = CellState::Alive;
+                }
+            } else if number_of_living_cells_near_by == 3 {
                 *cell = CellState::Alive;
             }
+
+            if let Some(mut zell) = old_cells.get(index) {
+                zell = &cell.clone();
+            }
+
+            // if *cell == CellState::Alive {
+            //     *cell = CellState::Dead;
+            // } else {
+            //     *cell = CellState::Alive;
+            // }
         }
     }
 }
+
+ fn getPositionFromIndex(number_of_cols: f64, index: f64) -> (i64, i64) {
+        let row = (index / number_of_cols).floor();
+        let col = index - row as f64 * number_of_cols;
+
+        return (row as i64, col as i64);
+    }
+
+    fn getPositionFromRowCol(number_of_cols: i64, row: i64, col: i64) -> i64 {
+        return row * number_of_cols + col;
+    }
